@@ -55,6 +55,7 @@
         line {
             stroke-width: 3;
             filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+            pointer-events: auto; /* Allows potential future interactions with lines */
         }
 
         #controls {
@@ -69,7 +70,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            flex-wrap: wrap; /* Allows wrapping on small screens */
+            flex-wrap: wrap;
             max-width: 90vw;
         }
         
@@ -210,7 +211,7 @@
         <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 5px;"></div>
         
         <input type="color" id="yarn-color" value="#d94e4e" title="Choose Yarn Color">
-        <button id="link-btn" onclick="toggleLinkMode()">🔗 Link</button>
+        <button id="link-btn" onclick="toggleLinkMode()">🔗 Link / Unlink</button>
         
         <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 5px;"></div>
         
@@ -295,7 +296,6 @@
     // --- 1. Import / Export Logic ---
 
     function getBoardState() {
-        // Collect all data into a JS object
         const itemsData = [];
         document.querySelectorAll('.item').forEach(el => {
             let content = "";
@@ -346,7 +346,7 @@
                     const data = JSON.parse(e.target.result);
                     if(confirm("This will replace your current board. Continue?")) {
                         rebuildBoard(data);
-                        saveBoard(); // Save immediately to DB
+                        saveBoard();
                     }
                 } catch (err) {
                     alert("Invalid File Format");
@@ -355,14 +355,14 @@
             };
             reader.readAsText(input.files[0]);
         }
-        input.value = ''; // Reset
+        input.value = '';
     }
 
     // --- 2. Saving System (DB) ---
 
     function saveBoard() {
         if (!db) return;
-        const data = getBoardState(); // Use helper
+        const data = getBoardState();
         const transaction = db.transaction([STORE_NAME], "readwrite");
         transaction.objectStore(STORE_NAME).put(data, "currentSave");
         transaction.oncomplete = () => {
@@ -381,12 +381,10 @@
     }
 
     function rebuildBoard(data) {
-        // Clear
         document.querySelectorAll('.item').forEach(e => e.remove());
         while(svgLayer.firstChild) { svgLayer.removeChild(svgLayer.firstChild); }
         connections = [];
 
-        // View
         if (data.view) {
             scale = data.view.scale || 1;
             panX = data.view.panX || 0;
@@ -394,13 +392,11 @@
             updateView();
         }
 
-        // Items
         data.items.forEach(item => {
             if (item.type === 'note') createNoteElement(item.id, item.x, item.y, item.content, item.w, item.h);
             else createPhotoElement(item.id, item.x, item.y, item.content, item.w, item.h);
         });
 
-        // Lines
         if (data.lines) {
             data.lines.forEach(lineData => {
                 const startEl = document.getElementById(lineData.startId);
@@ -423,7 +419,6 @@
     function updateView() {
         world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
         zoomDisplay.innerText = Math.round(scale * 100) + "%";
-        // Do not auto-save on every drag frame, rely on mouseup
     }
 
     function resetView() {
@@ -442,7 +437,7 @@
         const newScale = Math.min(Math.max(0.1, scale + delta), 5);
         scale = newScale;
         updateView();
-        saveBoard(); // Save zoom state
+        saveBoard();
     }, { passive: false });
 
     bg.addEventListener('mousedown', (e) => {
@@ -485,7 +480,7 @@
         if (isPanning) {
             isPanning = false;
             bg.style.cursor = "default";
-            saveBoard(); // Save pan position
+            saveBoard();
         }
         if (isDragging || isResizing) {
             if(currentDragItem) currentDragItem.style.zIndex = 10;
@@ -639,7 +634,7 @@
             world.style.cursor = "crosshair";
         } else {
             linkBtn.classList.remove('active');
-            linkBtn.innerText = "🔗 Link";
+            linkBtn.innerText = "🔗 Link / Unlink";
             world.style.cursor = "default";
             document.querySelectorAll('.item').forEach(i => i.style.outline = "none");
         }
@@ -647,13 +642,30 @@
 
     function handleLinkClick(item) {
         if (!linkStartItem) {
+            // First Click
             linkStartItem = item;
             item.style.outline = "3px solid " + colorPicker.value;
         } else {
+            // Second Click
             if (linkStartItem !== item) {
-                createLine(linkStartItem, item, colorPicker.value);
-                saveBoard();
+                // Check if connection already exists
+                const existingIndex = connections.findIndex(c => 
+                    (c.start === linkStartItem && c.end === item) || 
+                    (c.start === item && c.end === linkStartItem)
+                );
+
+                if (existingIndex !== -1) {
+                    // LINK EXISTS -> REMOVE IT (UNLINK)
+                    connections[existingIndex].line.remove();
+                    connections.splice(existingIndex, 1);
+                    saveBoard();
+                } else {
+                    // LINK DOES NOT EXIST -> CREATE IT
+                    createLine(linkStartItem, item, colorPicker.value);
+                    saveBoard();
+                }
             }
+            // Reset
             linkStartItem.style.outline = "none";
             linkStartItem = null;
             toggleLinkMode();
@@ -701,7 +713,3 @@
 </script>
 </body>
 </html>
-</body>
-</html>
-
-
