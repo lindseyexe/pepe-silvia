@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detective Board</title>
+    <style>
+        /* --- Styles --- */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
+
+        #board {
+            width: 100vw;
+            height: 100vh;
+            background-color: #bfa780;
+            background-image: repeating-radial-gradient(#b09670 0, #bfa780 2px), repeating-radial-gradient(#a88e68 0, #bfa780 4px);
+            background-size: 20px 20px;
+            position: relative;
+        }
+
+        #yarn-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        line {
+            stroke-width: 3;
+            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+        }
+
+        #controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        button {
+            padding: 8px 12px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        button:hover { background: #eee; }
+        
+        button.active {
+            background: #444;
+            color: white;
+            border-color: #222;
+        }
+        
+        button.danger {
+            border-color: #ffcccc;
+            background: #fff0f0;
+            color: #d00;
+        }
+
+        input[type="color"] {
+            border: none;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            background: none;
+        }
+
+        /* --- Item Styles --- */
+        .item {
+            position: absolute;
+            cursor: grab;
+            box-shadow: 2px 5px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            min-width: 100px;  /* Prevent making it too small */
+            min-height: 100px;
+        }
+
+        .item:active { cursor: grabbing; z-index: 100; }
+
+        .note {
+            width: 200px;
+            height: 200px;
+            background: #fdfd96;
+            padding: 10px;
+            box-sizing: border-box;
+            transform: rotate(-2deg);
+        }
+
+        textarea {
+            width: 100%;
+            height: 90%; /* Leave room for resize handle */
+            background: transparent;
+            border: none;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .photo {
+            width: 220px;
+            /* Height is auto based on image, but we set min-height */
+            background: white;
+            padding: 10px 10px 40px 10px;
+            transform: rotate(3deg);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures image fills box if resized */
+            pointer-events: none;
+            display: block;
+            background: #000;
+            flex-grow: 1;
+        }
+
+        /* --- Resizer Handle --- */
+        .resizer {
+            width: 15px;
+            height: 15px;
+            background: linear-gradient(135deg, transparent 50%, #999 50%);
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            cursor: nwse-resize;
+            z-index: 20;
+        }
+
+        #file-input { display: none; }
+        
+        #context-menu {
+            display: none;
+            position: absolute;
+            z-index: 2000;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        #context-menu button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: none;
+            background: none;
+            padding: 5px 10px;
+        }
+        #context-menu button:hover { background-color: #eee; }
+
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <button onclick="addNote()">+ Sticky Note</button>
+        <button onclick="document.getElementById('file-input').click()">+ Add Photo</button>
+        
+        <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 5px;"></div>
+        
+        <input type="color" id="yarn-color" value="#d94e4e" title="Choose Yarn Color">
+        <button id="link-btn" onclick="toggleLinkMode()">🔗 Link Mode</button>
+        
+        <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 5px;"></div>
+
+        <button class="danger" onclick="clearBoard()">🗑️ Clear</button>
+        <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(this)">
+        <span id="save-status" style="font-size: 12px; color: #666; margin-left: 10px;"></span>
+    </div>
+
+    <div id="board">
+        <svg id="yarn-layer"></svg>
+    </div>
+    
+    <div id="context-menu">
+        <button onclick="deleteCurrentItem()">Delete Item</button>
+    </div>
+
+<script>
+    const board = document.getElementById('board');
+    const svgLayer = document.getElementById('yarn-layer');
+    const linkBtn = document.getElementById('link-btn');
+    const colorPicker = document.getElementById('yarn-color');
+    const saveStatus = document.getElementById('save-status');
+    const contextMenu = document.getElementById('context-menu');
+
+    // Dragging Logic
+    let isDragging = false;
+    let currentDragItem = null;
+    let dragOffsetX, dragOffsetY;
+
+    // Resizing Logic
+    let isResizing = false;
+    let currentResizeItem = null;
+    let resizeStartX, resizeStartY, startWidth, startHeight;
+
+    // Linking Logic
+    let linkMode = false;
+    let linkStartItem = null;
+    let contextMenuItem = null;
+    let connections = [];
+
+    // --- 0. DATABASE ENGINE (IndexedDB) ---
+    let db;
+    const DB_NAME = "DetectiveDB";
+    const STORE_NAME = "boardState";
+
+    function initDB() {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = function(event) {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+        request.onsuccess = function(event) {
+            db = event.target.result;
+            loadBoard(); 
+        };
+    }
+
+    function saveBoard() {
+        if (!db) return;
+        const itemsData = [];
+        document.querySelectorAll('.item').forEach(el => {
+            let content = "";
+            let type = "note";
+            if (el.classList.contains('photo')) {
+                type = "photo";
+                content = el.querySelector('img').src;
+            } else {
+                content = el.querySelector('textarea').value;
+            }
+            
+            itemsData.push({
+                id: el.id,
+                type: type,
+                x: parseInt(el.style.left),
+                y: parseInt(el.style.top),
+                w: el.style.width || "", // Save width
+                h: el.style.height || "", // Save height
+                content: content
+            });
+        });
+
+        const linesData = connections.map(c => ({
+            startId: c.start.id,
+            endId: c.end.id,
+            color: c.color
+        }));
+
+        const data = { items: itemsData, lines: linesData };
+        const transaction = db.transaction([STORE_NAME], "readwrite");
+        transaction.objectStore(STORE_NAME).put(data, "currentSave");
+        transaction.oncomplete = function() {
+            saveStatus.innerText = "Saved!";
+            setTimeout(() => saveStatus.innerText = "", 2000);
+        };
+    }
+
+    function loadBoard() {
+        const transaction = db.transaction([STORE_NAME], "readonly");
+        const request = transaction.objectStore(STORE_NAME).get("currentSave");
+        request.onsuccess = function(event) {
+            if (event.target.result) rebuildBoard(event.target.result);
+        };
+    }
+
+    function rebuildBoard(data) {
+        document.querySelectorAll('.item').forEach(e => e.remove());
+        while(svgLayer.firstChild) { svgLayer.removeChild(svgLayer.firstChild); }
+        connections = [];
+
+        data.items.forEach(item => {
+            if (item.type === 'note') {
+                createNoteElement(item.id, item.x, item.y, item.content, item.w, item.h);
+            } else {
+                createPhotoElement(item.id, item.x, item.y, item.content, item.w, item.h);
+            }
+        });
+
+        data.lines.forEach(lineData => {
+            const startEl = document.getElementById(lineData.startId);
+            const endEl = document.getElementById(lineData.endId);
+            if (startEl && endEl) {
+                createLine(startEl, endEl, lineData.color || "#d94e4e");
+            }
+        });
+    }
+
+    function clearBoard() {
+        if(confirm("Delete everything?")) {
+            const transaction = db.transaction([STORE_NAME], "readwrite");
+            transaction.objectStore(STORE_NAME).delete("currentSave");
+            location.reload();
+        }
+    }
+
+    function generateId() {
+        return 'item-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    }
+
+    // --- 2. Item Creation ---
+
+    function addNote() {
+        createNoteElement(generateId(), window.innerWidth/2 - 100, window.innerHeight/2 - 100, "");
+        saveBoard();
+    }
+
+    function createNoteElement(id, x, y, content, w, h) {
+        const note = document.createElement('div');
+        note.className = 'item note';
+        note.id = id;
+        note.style.left = x + 'px';
+        note.style.top = y + 'px';
+        if(w) note.style.width = w;
+        if(h) note.style.height = h;
+        
+        const textArea = document.createElement('textarea');
+        textArea.placeholder = "Type clues here...";
+        textArea.value = content;
+        textArea.addEventListener('input', saveBoard);
+
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+
+        note.appendChild(textArea);
+        note.appendChild(resizer);
+        
+        setupInteractions(note);
+        setupResize(resizer, note);
+        board.appendChild(note);
+    }
+
+    function handleFileUpload(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                createPhotoElement(generateId(), window.innerWidth/2 - 110, window.innerHeight/2 - 110, e.target.result);
+                saveBoard();
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+        input.value = '';
+    }
+
+    function createPhotoElement(id, x, y, imgSrc, w, h) {
+        const photoDiv = document.createElement('div');
+        photoDiv.className = 'item photo';
+        photoDiv.id = id;
+        photoDiv.style.left = x + 'px';
+        photoDiv.style.top = y + 'px';
+        if(w) photoDiv.style.width = w;
+        if(h) photoDiv.style.height = h;
+
+        const img = document.createElement('img');
+        img.src = imgSrc;
+
+        const resizer = document.createElement('div');
+        resizer.className = 'resizer';
+        
+        photoDiv.appendChild(img);
+        photoDiv.appendChild(resizer);
+
+        setupInteractions(photoDiv);
+        setupResize(resizer, photoDiv);
+        board.appendChild(photoDiv);
+    }
+
+    // --- 3. Dragging & Context Menu ---
+
+    function setupInteractions(item) {
+        item.addEventListener('mousedown', (e) => {
+            // If clicking the resizer, don't drag
+            if (e.target.className === 'resizer') return;
+            
+            if (e.button === 2) return; 
+            if (linkMode) {
+                handleLinkClick(item);
+                return;
+            }
+            if (e.target.tagName === 'TEXTAREA') return;
+
+            isDragging = true;
+            currentDragItem = item;
+            dragOffsetX = e.clientX - item.offsetLeft;
+            dragOffsetY = e.clientY - item.offsetTop;
+            
+            item.style.zIndex = 100; 
+            closeContextMenu();
+        });
+
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            contextMenuItem = item;
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = e.pageX + 'px';
+            contextMenu.style.top = e.pageY + 'px';
+        });
+    }
+
+    // --- 4. Resizing Logic ---
+
+    function setupResize(resizer, item) {
+        resizer.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); // Stop drag event
+            isResizing = true;
+            currentResizeItem = item;
+            resizeStartX = e.clientX;
+            resizeStartY = e.clientY;
+            startWidth = parseInt(document.defaultView.getComputedStyle(item).width, 10);
+            startHeight = parseInt(document.defaultView.getComputedStyle(item).height, 10);
+        });
+    }
+
+    function closeContextMenu() {
+        contextMenu.style.display = 'none';
+        contextMenuItem = null;
+    }
+
+    function deleteCurrentItem() {
+        if (contextMenuItem) {
+            connections = connections.filter(c => {
+                if (c.start === contextMenuItem || c.end === contextMenuItem) {
+                    c.line.remove();
+                    return false;
+                }
+                return true;
+            });
+            contextMenuItem.remove();
+            saveBoard();
+            closeContextMenu();
+        }
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#context-menu')) closeContextMenu();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        // Handle Dragging
+        if (isDragging && currentDragItem) {
+            currentDragItem.style.left = `${e.clientX - dragOffsetX}px`;
+            currentDragItem.style.top = `${e.clientY - dragOffsetY}px`;
+            updateLinesConnectedTo(currentDragItem);
+        }
+        
+        // Handle Resizing
+        if (isResizing && currentResizeItem) {
+            const newWidth = startWidth + (e.clientX - resizeStartX);
+            const newHeight = startHeight + (e.clientY - resizeStartY);
+            
+            // Apply new size
+            currentResizeItem.style.width = newWidth + 'px';
+            currentResizeItem.style.height = newHeight + 'px';
+            
+            // IMPORTANT: Update lines while resizing because center point changes
+            updateLinesConnectedTo(currentResizeItem);
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if(isDragging || isResizing){
+            if(currentDragItem) currentDragItem.style.zIndex = 10;
+            saveBoard(); // Save changes
+        }
+        isDragging = false;
+        isResizing = false;
+        currentDragItem = null;
+        currentResizeItem = null;
+    });
+
+    // --- 5. Linking ---
+
+    function toggleLinkMode() {
+        linkMode = !linkMode;
+        linkStartItem = null;
+        if (linkMode) {
+            linkBtn.classList.add('active');
+            linkBtn.innerText = "Click two items to Link";
+            board.style.cursor = "crosshair";
+        } else {
+            linkBtn.classList.remove('active');
+            linkBtn.innerText = "🔗 Link Mode";
+            board.style.cursor = "default";
+            document.querySelectorAll('.item').forEach(i => i.style.outline = "none");
+        }
+    }
+
+    function handleLinkClick(item) {
+        if (!linkStartItem) {
+            linkStartItem = item;
+            item.style.outline = "3px solid " + colorPicker.value;
+        } else {
+            if (linkStartItem !== item) {
+                createLine(linkStartItem, item, colorPicker.value);
+                saveBoard();
+            }
+            linkStartItem.style.outline = "none";
+            linkStartItem = null;
+            toggleLinkMode();
+        }
+    }
+
+    function createLine(item1, item2, color) {
+        const exists = connections.some(c => 
+            (c.start === item1 && c.end === item2) || 
+            (c.start === item2 && c.end === item1)
+        );
+        if(exists) return;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.style.stroke = color;
+        svgLayer.appendChild(line);
+        
+        const connection = { line: line, start: item1, end: item2, color: color };
+        connections.push(connection);
+        updateLinePosition(connection);
+    }
+
+    function updateLinePosition(connection) {
+        const rect1 = connection.start.getBoundingClientRect();
+        const rect2 = connection.end.getBoundingClientRect();
+        
+        const x1 = rect1.left + rect1.width / 2;
+        const y1 = rect1.top + rect1.height / 2;
+        const x2 = rect2.left + rect2.width / 2;
+        const y2 = rect2.top + rect2.height / 2;
+
+        connection.line.setAttribute('x1', x1);
+        connection.line.setAttribute('y1', y1);
+        connection.line.setAttribute('x2', x2);
+        connection.line.setAttribute('y2', y2);
+    }
+
+    function updateLinesConnectedTo(item) {
+        connections.forEach(conn => {
+            if (conn.start === item || conn.end === item) {
+                updateLinePosition(conn);
+            }
+        });
+    }
+
+    window.onload = initDB;
+
+</script>
+</body>
+</html>
