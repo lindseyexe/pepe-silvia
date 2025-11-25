@@ -6,7 +6,20 @@
     <title>Detective Board</title>
     <style>
         /* --- Styles --- */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            font-family: sans-serif;
+            
+            /* THE FIX: Prevent blue highlighting globally */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
 
         #board {
             width: 100vw;
@@ -83,7 +96,7 @@
             cursor: grab;
             box-shadow: 2px 5px 10px rgba(0,0,0,0.3);
             z-index: 10;
-            min-width: 100px;  /* Prevent making it too small */
+            min-width: 100px;
             min-height: 100px;
         }
 
@@ -100,18 +113,21 @@
 
         textarea {
             width: 100%;
-            height: 90%; /* Leave room for resize handle */
+            height: 90%;
             background: transparent;
             border: none;
             resize: none;
             font-family: 'Courier New', Courier, monospace;
             font-size: 16px;
             outline: none;
+            
+            /* Re-enable text selection INSIDE notes so you can edit text */
+            user-select: text;
+            -webkit-user-select: text;
         }
 
         .photo {
             width: 220px;
-            /* Height is auto based on image, but we set min-height */
             background: white;
             padding: 10px 10px 40px 10px;
             transform: rotate(3deg);
@@ -122,8 +138,8 @@
         .photo img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Ensures image fills box if resized */
-            pointer-events: none;
+            object-fit: cover;
+            pointer-events: none; /* Prevents dragging the image ghost */
             display: block;
             background: #000;
             flex-grow: 1;
@@ -387,7 +403,6 @@
 
     function setupInteractions(item) {
         item.addEventListener('mousedown', (e) => {
-            // If clicking the resizer, don't drag
             if (e.target.className === 'resizer') return;
             
             if (e.button === 2) return; 
@@ -419,7 +434,7 @@
 
     function setupResize(resizer, item) {
         resizer.addEventListener('mousedown', (e) => {
-            e.stopPropagation(); // Stop drag event
+            e.stopPropagation(); 
             isResizing = true;
             currentResizeItem = item;
             resizeStartX = e.clientX;
@@ -466,11 +481,8 @@
             const newWidth = startWidth + (e.clientX - resizeStartX);
             const newHeight = startHeight + (e.clientY - resizeStartY);
             
-            // Apply new size
             currentResizeItem.style.width = newWidth + 'px';
             currentResizeItem.style.height = newHeight + 'px';
-            
-            // IMPORTANT: Update lines while resizing because center point changes
             updateLinesConnectedTo(currentResizeItem);
         }
     });
@@ -478,7 +490,7 @@
     document.addEventListener('mouseup', () => {
         if(isDragging || isResizing){
             if(currentDragItem) currentDragItem.style.zIndex = 10;
-            saveBoard(); // Save changes
+            saveBoard(); 
         }
         isDragging = false;
         isResizing = false;
