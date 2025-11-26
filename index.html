@@ -42,6 +42,7 @@
         button:hover { background: #eee; }
         button.active { background: #444; color: white; border-color: #222; }
         button.danger { border-color: #ffcccc; background: #fff0f0; color: #d00; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         input[type="color"] { border: none; width: 35px; height: 35px; cursor: pointer; background: none; }
 
@@ -52,22 +53,15 @@
         }
         .item:active { cursor: grabbing; z-index: 100; }
 
-        /* --- THE NEW "CROSSED OUT" STYLES --- */
         .item.crossed-out::after {
-            content: '';
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            /* Create a big red X using gradients */
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: 
                 linear-gradient(to top left, transparent 46%, #d00 46%, #d00 54%, transparent 54%),
                 linear-gradient(to top right, transparent 46%, #d00 46%, #d00 54%, transparent 54%);
-            pointer-events: none; /* Let clicks pass through so you can still drag it */
-            opacity: 0.8;
-            z-index: 50;
+            pointer-events: none; opacity: 0.8; z-index: 50;
         }
         
-        /* Grayscale only for photos */
         .photo.crossed-out img { filter: grayscale(100%); opacity: 0.7; }
-        /* Dim text notes slightly */
         .note.crossed-out textarea { color: #555; }
 
         .note {
@@ -137,6 +131,7 @@
 
         <div style="border-left: 1px solid #ccc; height: 30px; margin: 0 5px;"></div>
 
+        <button id="undo-btn" onclick="undo()" disabled>↩️ Undo</button>
         <button class="danger" onclick="clearBoard()">🗑️ Clear</button>
         
         <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(this)">
@@ -165,6 +160,7 @@
     const saveStatus = document.getElementById('save-status');
     const contextMenu = document.getElementById('context-menu');
     const zoomDisplay = document.getElementById('zoom-level');
+    const undoBtn = document.getElementById('undo-btn');
 
     // --- STATE ---
     let scale = 1, panX = 0, panY = 0;
@@ -174,6 +170,9 @@
     let linkMode = false, linkStartItem = null;
     let contextMenuItem = null;
     let connections = [];
+    
+    // --- UNDO HISTORY ---
+    let historyStack = [];
 
     // --- DB ---
     let db;
@@ -211,7 +210,7 @@
                 y: parseFloat(el.style.top),
                 w: el.style.width, h: el.style.height,
                 content: content,
-                crossed: el.classList.contains('crossed-out') // Save Crossed State
+                crossed: el.classList.contains('crossed-out')
             });
         });
 
@@ -220,6 +219,23 @@
         }));
 
         return { items: itemsData, lines: linesData, view: { scale, panX, panY } };
+    }
+
+    // --- HISTORY / UNDO ---
+    
+    function pushToHistory() {
+        // Save current state before making a change
+        if (historyStack.length > 10) historyStack.shift(); // Keep last 10 actions
+        historyStack.push(getBoardState());
+        undoBtn.disabled = false;
+    }
+
+    function undo() {
+        if (historyStack.length === 0) return;
+        const prevState = historyStack.pop();
+        rebuildBoard(prevState);
+        saveBoard(); // Save the restored state to DB
+        if (historyStack.length === 0) undoBtn.disabled = true;
     }
 
     function exportBoard() {
@@ -238,6 +254,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     if(confirm("Replace current board?")) {
+                        pushToHistory(); // Save before import
                         rebuildBoard(data);
                         saveBoard();
                     }
@@ -283,8 +300,6 @@
             let el;
             if (item.type === 'note') el = createNoteElement(item.id, item.x, item.y, item.content, item.w, item.h);
             else el = createPhotoElement(item.id, item.x, item.y, item.content, item.w, item.h);
-            
-            // Restore Crossed State
             if(item.crossed) el.classList.add('crossed-out');
         });
 
@@ -299,6 +314,7 @@
 
     function clearBoard() {
         if(confirm("Delete everything?")) {
+            pushToHistory(); // Save before clearing
             const transaction = db.transaction([STORE_NAME], "readwrite");
             transaction.objectStore(STORE_NAME).delete("currentSave");
             location.reload();
@@ -443,6 +459,7 @@
 
     function deleteCurrentItem() {
         if (contextMenuItem) {
+            pushToHistory(); // <--- SAVE STATE BEFORE DELETE
             connections = connections.filter(c => {
                 if (c.start === contextMenuItem || c.end === contextMenuItem) {
                     c.line.remove(); return false;
