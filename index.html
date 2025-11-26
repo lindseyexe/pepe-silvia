@@ -7,198 +7,110 @@
     <style>
         /* --- Styles --- */
         body, html { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-            overflow: hidden; 
-            font-family: sans-serif;
-            background-color: #333;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; 
+            font-family: sans-serif; background-color: #333;
+            -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
         }
 
-        #world {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 0; 
-            height: 0;
-        }
+        #world { position: absolute; top: 0; left: 0; width: 0; height: 0; }
 
         #cork-bg {
-            position: absolute;
-            top: -50000px;
-            left: -50000px;
-            width: 100000px;
-            height: 100000px;
+            position: absolute; top: -50000px; left: -50000px; width: 100000px; height: 100000px;
             background-color: #bfa780;
             background-image: repeating-radial-gradient(#b09670 0, #bfa780 2px), repeating-radial-gradient(#a88e68 0, #bfa780 4px);
             background-size: 20px 20px;
-            z-index: 0;
-            pointer-events: auto; 
+            z-index: 0; pointer-events: auto; 
         }
 
         #yarn-layer {
-            position: absolute;
-            top: -50000px;
-            left: -50000px;
-            width: 100000px;
-            height: 100000px;
-            pointer-events: none;
-            z-index: 1;
-            overflow: visible;
+            position: absolute; top: -50000px; left: -50000px; width: 100000px; height: 100000px;
+            pointer-events: none; z-index: 1; overflow: visible;
         }
 
-        line {
-            stroke-width: 3;
-            filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
-            pointer-events: auto; /* Allows potential future interactions with lines */
-        }
+        line { stroke-width: 3; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3)); pointer-events: auto; }
 
         #controls {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 10px 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            z-index: 1000;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            max-width: 90vw;
+            position: fixed; top: 20px; left: 20px; background: rgba(255, 255, 255, 0.95);
+            padding: 10px 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 1000; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: 90vw;
         }
         
         button {
-            padding: 8px 12px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-            background: #fff;
-            border-radius: 4px;
-            font-weight: bold;
-            white-space: nowrap;
+            padding: 8px 12px; cursor: pointer; border: 1px solid #ccc; background: #fff;
+            border-radius: 4px; font-weight: bold; white-space: nowrap;
         }
-
         button:hover { background: #eee; }
-        
-        button.active {
-            background: #444;
-            color: white;
-            border-color: #222;
-        }
-        
-        button.danger {
-            border-color: #ffcccc;
-            background: #fff0f0;
-            color: #d00;
-        }
+        button.active { background: #444; color: white; border-color: #222; }
+        button.danger { border-color: #ffcccc; background: #fff0f0; color: #d00; }
 
-        input[type="color"] {
-            border: none;
-            width: 35px;
-            height: 35px;
-            cursor: pointer;
-            background: none;
-        }
+        input[type="color"] { border: none; width: 35px; height: 35px; cursor: pointer; background: none; }
 
         /* --- Item Styles --- */
         .item {
-            position: absolute;
-            cursor: grab;
-            box-shadow: 2px 5px 10px rgba(0,0,0,0.3);
-            z-index: 10;
-            min-width: 100px;
-            min-height: 100px;
+            position: absolute; cursor: grab; box-shadow: 2px 5px 10px rgba(0,0,0,0.3);
+            z-index: 10; min-width: 100px; min-height: 100px; transition: filter 0.2s;
         }
-
         .item:active { cursor: grabbing; z-index: 100; }
 
+        /* --- THE NEW "CROSSED OUT" STYLES --- */
+        .item.crossed-out::after {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            /* Create a big red X using gradients */
+            background: 
+                linear-gradient(to top left, transparent 46%, #d00 46%, #d00 54%, transparent 54%),
+                linear-gradient(to top right, transparent 46%, #d00 46%, #d00 54%, transparent 54%);
+            pointer-events: none; /* Let clicks pass through so you can still drag it */
+            opacity: 0.8;
+            z-index: 50;
+        }
+        
+        /* Grayscale only for photos */
+        .photo.crossed-out img { filter: grayscale(100%); opacity: 0.7; }
+        /* Dim text notes slightly */
+        .note.crossed-out textarea { color: #555; }
+
         .note {
-            width: 200px;
-            height: 200px;
-            background: #fdfd96;
-            padding: 10px;
-            box-sizing: border-box;
-            transform: rotate(-2deg);
+            width: 200px; height: 200px; background: #fdfd96; padding: 10px;
+            box-sizing: border-box; transform: rotate(-2deg);
         }
 
         textarea {
-            width: 100%;
-            height: 90%;
-            background: transparent;
-            border: none;
-            resize: none;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 16px;
-            outline: none;
-            user-select: text;
-            -webkit-user-select: text;
+            width: 100%; height: 90%; background: transparent; border: none;
+            resize: none; font-family: 'Courier New', Courier, monospace; font-size: 16px;
+            outline: none; user-select: text; -webkit-user-select: text;
         }
 
         .photo {
-            width: 220px;
-            background: white;
-            padding: 10px 10px 40px 10px;
-            transform: rotate(3deg);
-            display: flex;
-            flex-direction: column;
+            width: 220px; background: white; padding: 10px 10px 40px 10px;
+            transform: rotate(3deg); display: flex; flex-direction: column;
         }
 
         .photo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            pointer-events: none;
-            display: block;
-            background: #000;
-            flex-grow: 1;
+            width: 100%; height: 100%; object-fit: cover; pointer-events: none;
+            display: block; background: #000; flex-grow: 1; transition: filter 0.2s;
         }
 
         .resizer {
-            width: 15px;
-            height: 15px;
-            background: linear-gradient(135deg, transparent 50%, #999 50%);
-            position: absolute;
-            right: 0;
-            bottom: 0;
-            cursor: nwse-resize;
-            z-index: 20;
+            width: 15px; height: 15px; background: linear-gradient(135deg, transparent 50%, #999 50%);
+            position: absolute; right: 0; bottom: 0; cursor: nwse-resize; z-index: 20;
         }
 
         #file-input, #import-file { display: none; }
         
         #context-menu {
-            display: none;
-            position: absolute;
-            z-index: 2000;
-            background: white;
-            border: 1px solid #ccc;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-            padding: 5px;
-            border-radius: 4px;
+            display: none; position: absolute; z-index: 2000; background: white;
+            border: 1px solid #ccc; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            padding: 5px; border-radius: 4px; min-width: 150px;
         }
         
         #context-menu button {
-            display: block;
-            width: 100%;
-            text-align: left;
-            border: none;
-            background: none;
-            padding: 5px 10px;
+            display: block; width: 100%; text-align: left; border: none; background: none;
+            padding: 8px 10px; cursor: pointer; font-size: 14px;
         }
         #context-menu button:hover { background-color: #eee; }
         
-        #zoom-level {
-            font-size: 12px;
-            color: #666;
-            min-width: 40px;
-            text-align: right;
-        }
+        #zoom-level { font-size: 12px; color: #666; min-width: 40px; text-align: right; }
 
     </style>
 </head>
@@ -239,7 +151,9 @@
     </div>
     
     <div id="context-menu">
-        <button onclick="deleteCurrentItem()">Delete Item</button>
+        <button onclick="toggleCrossOut()">❌ Cross Out / Restore</button>
+        <div style="border-top: 1px solid #ddd; margin: 2px 0;"></div>
+        <button onclick="deleteCurrentItem()" style="color: #d00;">🗑️ Delete Item</button>
     </div>
 
 <script>
@@ -252,29 +166,16 @@
     const contextMenu = document.getElementById('context-menu');
     const zoomDisplay = document.getElementById('zoom-level');
 
-    // --- VIEWPORT STATE ---
-    let scale = 1;
-    let panX = 0;
-    let panY = 0;
-    
-    let isPanning = false;
-    let panStartX, panStartY;
-
-    // --- ITEM STATE ---
-    let isDragging = false;
-    let currentDragItem = null;
-    let dragOffsetX, dragOffsetY;
-
-    let isResizing = false;
-    let currentResizeItem = null;
-    let resizeStartX, resizeStartY, startWidth, startHeight;
-
-    let linkMode = false;
-    let linkStartItem = null;
+    // --- STATE ---
+    let scale = 1, panX = 0, panY = 0;
+    let isPanning = false, panStartX, panStartY;
+    let isDragging = false, currentDragItem = null, dragOffsetX, dragOffsetY;
+    let isResizing = false, currentResizeItem = null, resizeStartX, resizeStartY, startWidth, startHeight;
+    let linkMode = false, linkStartItem = null;
     let contextMenuItem = null;
     let connections = [];
 
-    // --- 0. DATABASE ENGINE ---
+    // --- DB ---
     let db;
     const DB_NAME = "DetectiveDB";
     const STORE_NAME = "boardState";
@@ -283,9 +184,7 @@
         const request = indexedDB.open(DB_NAME, 2);
         request.onupgradeneeded = function(event) {
             db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME);
-            }
+            if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
         };
         request.onsuccess = function(event) {
             db = event.target.result;
@@ -293,7 +192,7 @@
         };
     }
 
-    // --- 1. Import / Export Logic ---
+    // --- LOGIC ---
 
     function getBoardState() {
         const itemsData = [];
@@ -311,7 +210,8 @@
                 x: parseFloat(el.style.left),
                 y: parseFloat(el.style.top),
                 w: el.style.width, h: el.style.height,
-                content: content
+                content: content,
+                crossed: el.classList.contains('crossed-out') // Save Crossed State
             });
         });
 
@@ -319,23 +219,16 @@
             startId: c.start.id, endId: c.end.id, color: c.color
         }));
 
-        const viewData = { scale: scale, panX: panX, panY: panY };
-        return { items: itemsData, lines: linesData, view: viewData };
+        return { items: itemsData, lines: linesData, view: { scale, panX, panY } };
     }
 
     function exportBoard() {
-        const data = getBoardState();
-        const json = JSON.stringify(data);
+        const json = JSON.stringify(getBoardState());
         const blob = new Blob([json], {type: "application/json"});
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
-        a.href = url;
-        a.download = "detective-board-" + Date.now() + ".json";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = "detective-board-" + Date.now() + ".json";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
     function importBoard(input) {
@@ -344,27 +237,21 @@
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if(confirm("This will replace your current board. Continue?")) {
+                    if(confirm("Replace current board?")) {
                         rebuildBoard(data);
                         saveBoard();
                     }
-                } catch (err) {
-                    alert("Invalid File Format");
-                    console.error(err);
-                }
+                } catch (err) { alert("Invalid File"); }
             };
             reader.readAsText(input.files[0]);
         }
         input.value = '';
     }
 
-    // --- 2. Saving System (DB) ---
-
     function saveBoard() {
         if (!db) return;
-        const data = getBoardState();
         const transaction = db.transaction([STORE_NAME], "readwrite");
-        transaction.objectStore(STORE_NAME).put(data, "currentSave");
+        transaction.objectStore(STORE_NAME).put(getBoardState(), "currentSave");
         transaction.oncomplete = () => {
              saveStatus.innerText = "Saved"; 
              setTimeout(() => saveStatus.innerText = "", 1000);
@@ -382,7 +269,7 @@
 
     function rebuildBoard(data) {
         document.querySelectorAll('.item').forEach(e => e.remove());
-        while(svgLayer.firstChild) { svgLayer.removeChild(svgLayer.firstChild); }
+        while(svgLayer.firstChild) svgLayer.removeChild(svgLayer.firstChild);
         connections = [];
 
         if (data.view) {
@@ -393,8 +280,12 @@
         }
 
         data.items.forEach(item => {
-            if (item.type === 'note') createNoteElement(item.id, item.x, item.y, item.content, item.w, item.h);
-            else createPhotoElement(item.id, item.x, item.y, item.content, item.w, item.h);
+            let el;
+            if (item.type === 'note') el = createNoteElement(item.id, item.x, item.y, item.content, item.w, item.h);
+            else el = createPhotoElement(item.id, item.x, item.y, item.content, item.w, item.h);
+            
+            // Restore Crossed State
+            if(item.crossed) el.classList.add('crossed-out');
         });
 
         if (data.lines) {
@@ -414,126 +305,81 @@
         }
     }
 
-    // --- 3. Viewport Logic ---
-
     function updateView() {
         world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
         zoomDisplay.innerText = Math.round(scale * 100) + "%";
     }
 
     function resetView() {
-        scale = 1;
-        panX = window.innerWidth / 2; 
-        panY = window.innerHeight / 2;
-        updateView();
-        saveBoard();
+        scale = 1; panX = window.innerWidth / 2; panY = window.innerHeight / 2;
+        updateView(); saveBoard();
     }
 
     window.addEventListener('wheel', (e) => {
         if (e.target.tagName === 'TEXTAREA') return;
         e.preventDefault();
-        const zoomSensitivity = 0.001;
-        const delta = -e.deltaY * zoomSensitivity;
-        const newScale = Math.min(Math.max(0.1, scale + delta), 5);
-        scale = newScale;
-        updateView();
-        saveBoard();
+        scale = Math.min(Math.max(0.1, scale + (e.deltaY * -0.001)), 5);
+        updateView(); saveBoard();
     }, { passive: false });
 
     bg.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        if (linkMode) return;
-        isPanning = true;
-        panStartX = e.clientX - panX;
-        panStartY = e.clientY - panY;
+        if (e.button !== 0 || linkMode) return;
+        isPanning = true; panStartX = e.clientX - panX; panStartY = e.clientY - panY;
         bg.style.cursor = "grabbing";
     });
 
-    // --- 4. Global Interaction ---
-
     document.addEventListener('mousemove', (e) => {
         if (isPanning) {
-            panX = e.clientX - panStartX;
-            panY = e.clientY - panStartY;
-            updateView();
-            return;
+            panX = e.clientX - panStartX; panY = e.clientY - panStartY;
+            updateView(); return;
         }
-
         if (isDragging && currentDragItem) {
-            const rawX = (e.clientX - panX) / scale;
-            const rawY = (e.clientY - panY) / scale;
-            currentDragItem.style.left = `${rawX - dragOffsetX}px`;
-            currentDragItem.style.top = `${rawY - dragOffsetY}px`;
+            currentDragItem.style.left = `${(e.clientX - panX) / scale - dragOffsetX}px`;
+            currentDragItem.style.top = `${(e.clientY - panY) / scale - dragOffsetY}px`;
             updateLinesConnectedTo(currentDragItem);
         }
-
         if (isResizing && currentResizeItem) {
-            const deltaX = (e.clientX - resizeStartX) / scale;
-            const deltaY = (e.clientY - resizeStartY) / scale;
-            currentResizeItem.style.width = (startWidth + deltaX) + 'px';
-            currentResizeItem.style.height = (startHeight + deltaY) + 'px';
+            currentResizeItem.style.width = (startWidth + (e.clientX - resizeStartX) / scale) + 'px';
+            currentResizeItem.style.height = (startHeight + (e.clientY - resizeStartY) / scale) + 'px';
             updateLinesConnectedTo(currentResizeItem);
         }
     });
 
     document.addEventListener('mouseup', () => {
-        if (isPanning) {
-            isPanning = false;
-            bg.style.cursor = "default";
-            saveBoard();
-        }
-        if (isDragging || isResizing) {
-            if(currentDragItem) currentDragItem.style.zIndex = 10;
-            saveBoard();
-        }
-        isDragging = false;
-        isResizing = false;
-        currentDragItem = null;
-        currentResizeItem = null;
+        if (isPanning) { isPanning = false; bg.style.cursor = "default"; saveBoard(); }
+        if (isDragging || isResizing) { if(currentDragItem) currentDragItem.style.zIndex = 10; saveBoard(); }
+        isDragging = false; isResizing = false; currentDragItem = null; currentResizeItem = null;
     });
-
-    // --- 5. Item Factory & Tools ---
 
     function generateId() { return 'item-' + Date.now() + '-' + Math.floor(Math.random() * 1000); }
 
     function addNote() {
-        const x = (window.innerWidth/2 - panX) / scale - 100;
-        const y = (window.innerHeight/2 - panY) / scale - 100;
-        createNoteElement(generateId(), x, y, "");
+        createNoteElement(generateId(), (window.innerWidth/2 - panX)/scale - 100, (window.innerHeight/2 - panY)/scale - 100, "");
         saveBoard();
     }
 
     function createNoteElement(id, x, y, content, w, h) {
         const note = document.createElement('div');
-        note.className = 'item note';
-        note.id = id;
-        note.style.left = x + 'px';
-        note.style.top = y + 'px';
-        if(w) note.style.width = w;
-        if(h) note.style.height = h;
+        note.className = 'item note'; note.id = id;
+        note.style.left = x + 'px'; note.style.top = y + 'px';
+        if(w) note.style.width = w; if(h) note.style.height = h;
         
         const textArea = document.createElement('textarea');
-        textArea.placeholder = "Type clues here...";
-        textArea.value = content;
+        textArea.placeholder = "Type clues here..."; textArea.value = content;
         textArea.addEventListener('input', saveBoard);
 
-        const resizer = document.createElement('div');
-        resizer.className = 'resizer';
-
-        note.appendChild(textArea);
-        note.appendChild(resizer);
-        setupInteractions(note);
-        setupResize(resizer, note);
+        const resizer = document.createElement('div'); resizer.className = 'resizer';
+        note.appendChild(textArea); note.appendChild(resizer);
+        setupInteractions(note); setupResize(resizer, note);
         world.appendChild(note);
+        return note;
     }
 
     function handleFileUpload(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const x = (window.innerWidth/2 - panX) / scale - 110;
-                const y = (window.innerHeight/2 - panY) / scale - 110;
-                createPhotoElement(generateId(), x, y, e.target.result);
+                createPhotoElement(generateId(), (window.innerWidth/2 - panX)/scale - 110, (window.innerHeight/2 - panY)/scale - 110, e.target.result);
                 saveBoard();
             }
             reader.readAsDataURL(input.files[0]);
@@ -543,23 +389,17 @@
 
     function createPhotoElement(id, x, y, imgSrc, w, h) {
         const photoDiv = document.createElement('div');
-        photoDiv.className = 'item photo';
-        photoDiv.id = id;
-        photoDiv.style.left = x + 'px';
-        photoDiv.style.top = y + 'px';
-        if(w) photoDiv.style.width = w;
-        if(h) photoDiv.style.height = h;
+        photoDiv.className = 'item photo'; photoDiv.id = id;
+        photoDiv.style.left = x + 'px'; photoDiv.style.top = y + 'px';
+        if(w) photoDiv.style.width = w; if(h) photoDiv.style.height = h;
 
-        const img = document.createElement('img');
-        img.src = imgSrc;
-        const resizer = document.createElement('div');
-        resizer.className = 'resizer';
+        const img = document.createElement('img'); img.src = imgSrc;
+        const resizer = document.createElement('div'); resizer.className = 'resizer';
         
-        photoDiv.appendChild(img);
-        photoDiv.appendChild(resizer);
-        setupInteractions(photoDiv);
-        setupResize(resizer, photoDiv);
+        photoDiv.appendChild(img); photoDiv.appendChild(resizer);
+        setupInteractions(photoDiv); setupResize(resizer, photoDiv);
         world.appendChild(photoDiv);
+        return photoDiv;
     }
 
     function setupInteractions(item) {
@@ -569,42 +409,36 @@
             if (linkMode) { handleLinkClick(item); return; }
             if (e.target.tagName === 'TEXTAREA') return;
 
-            isDragging = true;
-            currentDragItem = item;
-            
-            const worldMouseX = (e.clientX - panX) / scale;
-            const worldMouseY = (e.clientY - panY) / scale;
-            dragOffsetX = worldMouseX - parseFloat(item.style.left);
-            dragOffsetY = worldMouseY - parseFloat(item.style.top);
-            
-            item.style.zIndex = 100; 
-            closeContextMenu();
+            isDragging = true; currentDragItem = item;
+            dragOffsetX = (e.clientX - panX) / scale - parseFloat(item.style.left);
+            dragOffsetY = (e.clientY - panY) / scale - parseFloat(item.style.top);
+            item.style.zIndex = 100; closeContextMenu();
         });
 
         item.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            contextMenuItem = item;
+            e.preventDefault(); contextMenuItem = item;
             contextMenu.style.display = 'block';
-            contextMenu.style.left = e.pageX + 'px';
-            contextMenu.style.top = e.pageY + 'px';
+            contextMenu.style.left = e.pageX + 'px'; contextMenu.style.top = e.pageY + 'px';
         });
     }
 
     function setupResize(resizer, item) {
         resizer.addEventListener('mousedown', (e) => {
-            e.stopPropagation(); 
-            isResizing = true;
-            currentResizeItem = item;
-            resizeStartX = e.clientX; 
-            resizeStartY = e.clientY;
+            e.stopPropagation(); isResizing = true; currentResizeItem = item;
+            resizeStartX = e.clientX; resizeStartY = e.clientY;
             startWidth = parseFloat(document.defaultView.getComputedStyle(item).width);
             startHeight = parseFloat(document.defaultView.getComputedStyle(item).height);
         });
     }
 
-    function closeContextMenu() {
-        contextMenu.style.display = 'none';
-        contextMenuItem = null;
+    function closeContextMenu() { contextMenu.style.display = 'none'; contextMenuItem = null; }
+
+    function toggleCrossOut() {
+        if(contextMenuItem) {
+            contextMenuItem.classList.toggle('crossed-out');
+            saveBoard();
+            closeContextMenu();
+        }
     }
 
     function deleteCurrentItem() {
@@ -615,9 +449,7 @@
                 }
                 return true;
             });
-            contextMenuItem.remove();
-            saveBoard();
-            closeContextMenu();
+            contextMenuItem.remove(); saveBoard(); closeContextMenu();
         }
     }
 
@@ -626,15 +458,12 @@
     });
 
     function toggleLinkMode() {
-        linkMode = !linkMode;
-        linkStartItem = null;
+        linkMode = !linkMode; linkStartItem = null;
         if (linkMode) {
-            linkBtn.classList.add('active');
-            linkBtn.innerText = "Click 2 Items";
+            linkBtn.classList.add('active'); linkBtn.innerText = "Click 2 Items";
             world.style.cursor = "crosshair";
         } else {
-            linkBtn.classList.remove('active');
-            linkBtn.innerText = "🔗 Link / Unlink";
+            linkBtn.classList.remove('active'); linkBtn.innerText = "🔗 Link / Unlink";
             world.style.cursor = "default";
             document.querySelectorAll('.item').forEach(i => i.style.outline = "none");
         }
@@ -642,69 +471,36 @@
 
     function handleLinkClick(item) {
         if (!linkStartItem) {
-            // First Click
-            linkStartItem = item;
-            item.style.outline = "3px solid " + colorPicker.value;
+            linkStartItem = item; item.style.outline = "3px solid " + colorPicker.value;
         } else {
-            // Second Click
             if (linkStartItem !== item) {
-                // Check if connection already exists
-                const existingIndex = connections.findIndex(c => 
-                    (c.start === linkStartItem && c.end === item) || 
-                    (c.start === item && c.end === linkStartItem)
-                );
-
-                if (existingIndex !== -1) {
-                    // LINK EXISTS -> REMOVE IT (UNLINK)
-                    connections[existingIndex].line.remove();
-                    connections.splice(existingIndex, 1);
-                    saveBoard();
-                } else {
-                    // LINK DOES NOT EXIST -> CREATE IT
-                    createLine(linkStartItem, item, colorPicker.value);
-                    saveBoard();
-                }
+                const idx = connections.findIndex(c => (c.start === linkStartItem && c.end === item) || (c.start === item && c.end === linkStartItem));
+                if (idx !== -1) { connections[idx].line.remove(); connections.splice(idx, 1); } 
+                else { createLine(linkStartItem, item, colorPicker.value); }
+                saveBoard();
             }
-            // Reset
-            linkStartItem.style.outline = "none";
-            linkStartItem = null;
-            toggleLinkMode();
+            linkStartItem.style.outline = "none"; linkStartItem = null; toggleLinkMode();
         }
     }
 
     function createLine(item1, item2, color) {
-        const exists = connections.some(c => 
-            (c.start === item1 && c.end === item2) || (c.start === item2 && c.end === item1)
-        );
-        if(exists) return;
-
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.style.stroke = color;
-        svgLayer.appendChild(line);
-        
+        line.style.stroke = color; svgLayer.appendChild(line);
         const connection = { line: line, start: item1, end: item2, color: color };
-        connections.push(connection);
-        updateLinePosition(connection);
+        connections.push(connection); updateLinePosition(connection);
     }
 
-    function updateLinePosition(connection) {
-        const x1 = parseFloat(connection.start.style.left) + connection.start.offsetWidth / 2;
-        const y1 = parseFloat(connection.start.style.top) + connection.start.offsetHeight / 2;
-        const x2 = parseFloat(connection.end.style.left) + connection.end.offsetWidth / 2;
-        const y2 = parseFloat(connection.end.style.top) + connection.end.offsetHeight / 2;
-        const offset = 50000;
-
-        connection.line.setAttribute('x1', x1 + offset);
-        connection.line.setAttribute('y1', y1 + offset);
-        connection.line.setAttribute('x2', x2 + offset);
-        connection.line.setAttribute('y2', y2 + offset);
+    function updateLinePosition(c) {
+        const off = 50000;
+        c.line.setAttribute('x1', parseFloat(c.start.style.left) + c.start.offsetWidth/2 + off);
+        c.line.setAttribute('y1', parseFloat(c.start.style.top) + c.start.offsetHeight/2 + off);
+        c.line.setAttribute('x2', parseFloat(c.end.style.left) + c.end.offsetWidth/2 + off);
+        c.line.setAttribute('y2', parseFloat(c.end.style.top) + c.end.offsetHeight/2 + off);
     }
 
     function updateLinesConnectedTo(item) {
         connections.forEach(conn => {
-            if (conn.start === item || conn.end === item) {
-                updateLinePosition(conn);
-            }
+            if (conn.start === item || conn.end === item) updateLinePosition(conn);
         });
     }
 
